@@ -40,11 +40,26 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       'id'    => String,
       'links' => Array,
     }
+
+    @create_format_files = {
+      'id'    => String,
+      'links' => Array,
+      'files' => Hash
+    }
+
   end
 
   describe "success" do
     it "#create_stack" do
       @stack = @orchestration.create_stack("teststack").body.must_match_schema(@create_format)
+    end
+
+    it "#create_stack_with_files" do
+      args = {
+        :stack_name => "teststack_files", 
+        :files => {'foo.sh'=>'hello'}
+      }
+      @stack = @orchestration.create_stack(args).body.must_match_schema(@create_format_files)
     end
 
     it "#list_stack_data" do
