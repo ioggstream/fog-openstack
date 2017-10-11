@@ -1,4 +1,5 @@
 require "test_helper"
+require 'fog/core'
 
 describe "Fog::Orchestration[:openstack] | stack requests" do
   before do
@@ -60,6 +61,20 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
         :files => {'foo.sh'=>'hello'}
       }
       @stack = @orchestration.create_stack(args).body.must_match_schema(@create_format_files)
+    end
+
+    it "#create_stack_resolve_files" do
+      Dir.chdir("/code/test/requests/orchestration") do
+        args = {
+          :stack_name => "teststack_files", 
+          :template   => YAML.load(open("local.yaml")),
+        }
+        response = @orchestration.create_stack(args) 
+        response.body.must_match_schema(@create_format_files)
+        files = response.body['files']
+        Fog::Logger.warning("Request processed: #{files.keys()}")
+        assert_equal_set(["file:///code/test/requests/orchestration/local.yaml", "file:///code/test/requests/orchestration/hot_1.yaml"], files.keys())
+      end
     end
 
     it "#list_stack_data" do

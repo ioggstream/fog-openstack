@@ -45,6 +45,7 @@ module Fog
         end
 
         def is_template(content)
+          # Return true if the file is an heat template, false otherwise.
           htv = content.index("heat_template_version:") 
           return !!(htv and htv < 5)
         end
@@ -59,6 +60,7 @@ module Fog
         end
 
         def ignore_if(key, value)
+          # Should I attach this file?
           return true if key != 'get_file' and key != 'type'
             
           return true if not value.kind_of?(String)
@@ -70,6 +72,7 @@ module Fog
         end
         
         def recurse_if(value)
+          # Should I recurse into this template branch?
           return !!(value.kind_of?(Hash) or value.kind_of?(Array))
         end
 
@@ -131,6 +134,8 @@ module Fog
           tpl = self.get_content(template_file)
           template = YAML.load(tpl)
 
+          @visited[template_file] = true
+          Fog::Logger.warning("Template visited: #{@visited}")
           self.get_file_contents(template, base_url=template_base_url)
 
           return nil, template
@@ -165,27 +170,34 @@ module Fog
 
               str_url = url_join(base_url, value)
               if not @files.has_key?(str_url)
-                  if is_object and object_request
-                      raise NotImplementedError
-                      file_content = object_request('GET', str_url)
-                  else
-                      file_content = self.get_content(str_url)
-                  end
+              
+                # Don't process files outside our base_url.
+                if base_url and not str_url.start_with?(base_url)
+                  Fog::Logger.warning("Trying to reference a file outside #{base_url}: #{str_url}")
+                  next
+                end
+            
+                if is_object and object_request
+                    raise NotImplementedError
+                    file_content = object_request('GET', str_url)
+                else
+                    file_content = self.get_content(str_url)
+                end
 
-                  # get_file should not recurse hot templates.
-                  if key == "type" and is_template(file_content)
-                      if is_object
-                          raise NotImplementedError
-                          template = self.get_template_contents(
-                              template_object=str_url,
-                              object_request=object_request)[1]
-                      else
-                          template = self.get_template_contents(
-                              template_url=str_url)[1]
-                      end
-                      file_content = YAML.dump(template)
-                  end
-                  @files[str_url] = file_content
+                # get_file should not recurse hot templates.
+                if key == "type" and is_template(file_content) and not @visited[str_url]
+                    if is_object
+                        raise NotImplementedError
+                        template = self.get_template_contents(
+                            template_object=str_url,
+                            object_request=object_request)[1]
+                    else
+                        template = self.get_template_contents(
+                            template_url=str_url)[1]
+                    end
+                    file_content = YAML.dump(template)
+                end
+                @files[str_url] = file_content
               # replace the data value with the normalised absolute URL
               from_data[key] = str_url
               end

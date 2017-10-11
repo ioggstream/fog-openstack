@@ -1,3 +1,5 @@
+require "fog/orchestration/util/recursive_hot_file_loader"  # FIXME is there a better way to require this file?
+
 module Fog
   module Orchestration
     class OpenStack
@@ -28,12 +30,19 @@ module Fog
             }.merge(arg2.nil? ? {} : arg2)
           end
 
-          request(
+          params = {
             :expects => 201,
             :path    => 'stacks',
             :method  => 'POST',
             :body    => Fog::JSON.encode(options)
-          )
+          }
+
+          # Eventually resolve files.
+          hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template])
+          files = hot_resolver.get_files()
+          params[:files] = files if files
+          
+          request(params)
         end
       end
 
@@ -74,7 +83,8 @@ module Fog
           end
 
           if options.key?(:template)
-            raise NotImplementedError
+            hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template])
+            response.body['files'] = hot_resolver.get_files()
           end
 
           response

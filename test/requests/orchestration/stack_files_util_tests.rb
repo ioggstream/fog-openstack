@@ -12,34 +12,39 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
 before do
     @orchestration = Fog::Orchestration[:openstack]
 
-    @template = YAML.load(open("test/requests/orchestration/template.yaml").read)
+    @data = YAML.load(open("test/requests/orchestration/stack_files_util_tests.yaml"))
+    @template_yaml = YAML.load(open("test/requests/orchestration/template.yaml").read)
     @local_yaml = YAML.load(open("test/requests/orchestration/local.yaml").read)
     
-    @hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template)
+    @hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
 
   end
 
   describe "success" do
     it "#template_file_is_hot" do
-      assert(true, @hot_resolver.is_template(YAML.dump(@template)))
+      assert(true, @hot_resolver.is_template(YAML.dump(@template_yaml)))
     end
 
     it "#get_content_locale" do
       content = @hot_resolver.get_content("test/requests/orchestration/template.yaml")
-      assert(true, content.include?("heat_template_version"))
+      assert_includes(content, "heat_template_version")
     end
 
-    # it "#get_content_remote" do
-    #   content = @hot_resolver.get_content("https://www.google.com/robots.txt")
-    #   puts content
-    #   assert(true, content.include?("heat_template_version"))
-    # end
+    it "#get_content_remote" do
+      content = @hot_resolver.get_content("https://www.google.com/robots.txt")
+      assert_includes(content, "Disallow:")
+    end
 
-    # it "#get_content_404" do  # FIXME
-    #   assert_raise OpenURI::HTTPError do
-    #     content = @hot_resolver.get_content("https://www.google.com/NOOP")
-    #   end
-    # end
+    it "#get_content_404" do  # FIXME
+      assert_raises OpenURI::HTTPError do
+        @hot_resolver.get_content("https://www.google.com/NOOP")
+      end
+    end
+
+    it "#get_content_no_pipe" do 
+      content = @hot_resolver.get_content("ls | head")
+      puts content # = @hot_resolver.get_content("ls | head")
+    end
 
     it "#base_url_for_url" do
       test_cases = [
@@ -64,7 +69,7 @@ before do
        # [{"get_file"=>"test/requests/orchestration/template.yaml","b"=>"values"}, ""],    
       ]
       test_cases.each {|data, expected|
-        hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template)
+        hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
         hot_resolver.get_file_contents(data)
         Fog::Logger.warning("Processed files: #{hot_resolver.files}")
         assert_equal(hot_resolver.files, expected)
@@ -72,17 +77,35 @@ before do
     end
 
     it "#get_file_contents_references_template" do
+      # Heat files parameter is populated with URI-like syntax. The expected
+      #  values are absolute paths uri and should be resolved with the local
+      #  directory.
       base_url = URI.join("file:", File.absolute_path("test/requests/orchestration/"))
       base_url.host = ""  # fix 
 
       test_cases = [
-        [{"type"=>"local.yaml"}, ["local.yaml", "hot_1.yaml"].map {|fname| File.join(base_url.to_s , fname)}.compact],    
+        [{"type"=>"local.yaml"}, ["local.yaml", "hot_1.yaml"]], 
+        [{"type"=>"no_recursion.yaml"}, ["no_recursion.yaml"]], 
+        [{"type"=>"local_fullpath.yaml"}, ["local_fullpath.yaml", "local.yaml", "hot_1.yaml"]], 
       ]
       test_cases.each {|data, expected|
-        hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template)
+        expected = prefix_with_url(expected, base_url)
+        hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
         hot_resolver.get_file_contents(data, base_url=base_url.to_s)
         Fog::Logger.warning("Processed files: #{hot_resolver.files}")
         assert_equal(hot_resolver.files.keys(), expected)
+      }
+    end
+
+    it "#get_file_contents_http_template" do
+      test_cases = @data["get_file_contents_http_template"].map{ |testcase| 
+    #    [ testcase['input'], testcase['expected'] ]
+      }.compact
+      test_cases.each {|data, expected|
+        hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
+        hot_resolver.get_file_contents(data)
+        Fog::Logger.warning("Processed files: #{hot_resolver.files.keys()}")
+        assert_equal_set(hot_resolver.files.keys(), expected)
       }
     end
 
@@ -93,23 +116,6 @@ before do
         Fog::Logger.warning("Processed files: #{files.keys()}")
       end
     end
-
-    it "#get_file_contents_references_template" do
-      test_cases = [
-        [{"type"=>"https://raw.githubusercontent.com/redhat-openstack/openshift-on-openstack/master/openshift.yaml"}, ""],    
-      ]
-      test_cases.each {|data, expected|
-        hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template)
-        hot_resolver.get_file_contents(data)
-        Fog::Logger.warning("Processed files: #{hot_resolver.files.keys()}")
-        assert_equal(hot_resolver.files.keys(), expected)
-      }
-    end
-
-
-    # it "#get_template_contents" do 
-    #   raise NotImplementedError
-    # end
 
   end
 end
