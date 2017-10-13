@@ -179,8 +179,9 @@ module Fog
               str_url = url_join(base_url, value)
               next if @files.key?(str_url)
 
-              # Don't process files outside our base_url.
-              if base_url && !str_url.start_with?(base_url)
+              # Don't process file:// outside our base_url.
+              # TODO raise an exception here?
+              if base_url && str_url.start_with?("file://") && !str_url.start_with?(base_url)
                 Fog::Logger.warning("Trying to reference a file outside #{base_url}: #{str_url}")
                 next
               end

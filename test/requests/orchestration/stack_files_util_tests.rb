@@ -10,16 +10,18 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
     'files' => Hash
   }
   before do
+    @oldcwd = Dir.pwd
+    Dir.chdir("test/requests/orchestration")
     @orchestration = Fog::Orchestration[:openstack]
-
-    @data = YAML.safe_load(open("test/requests/orchestration/stack_files_util_tests.yaml"))
-    @template_yaml = YAML.safe_load(open("test/requests/orchestration/template.yaml"))
-    @local_yaml = YAML.safe_load(open("test/requests/orchestration/local.yaml"))
-
+    @data = YAML.safe_load(open("stack_files_util_tests.yaml"))
+    @template_yaml = YAML.safe_load(open("template.yaml"))
+    @local_yaml = YAML.safe_load(open("local.yaml"))
     @hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
-
-    @base_url = URI.join("file:", File.absolute_path("test/requests/orchestration/"))
+    @base_url = URI.join("file:", File.absolute_path("."))
     @base_url.host = ""  # fix
+  end
+  after do
+    Dir.chdir(@oldcwd)
   end
 
   describe "success" do
@@ -28,7 +30,7 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
     end
 
     it "#get_content_locale" do
-      content = @hot_resolver.get_content("test/requests/orchestration/template.yaml")
+      content = @hot_resolver.get_content("template.yaml")
       assert_includes(content, "heat_template_version")
     end
 
@@ -62,8 +64,8 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
         [["a", "list"], {}],
         [{"a" => "dict", "b" => "values"}, {}],
         [{"type"=>"OS::Nova::Server"}, {}],
-        [{"get_file" => "test/requests/orchestration/foo.sh", "b" => "values"}, {'test/requests/orchestration/foo.sh'=>'# Just a mock'}],
-        # [{"get_file"=>"test/requests/orchestration/template.yaml","b"=>"values"}, ""],
+        [{"get_file" => "foo.sh", "b" => "values"}, {'foo.sh'=>'# Just a mock'}],
+        # [{"get_file"=>"template.yaml","b"=>"values"}, ""],
       ]
       test_cases.each do |data, expected|
         hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
@@ -105,26 +107,28 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
     end
 
     it "#recurse_template" do
-      Dir.chdir("test/requests/orchestration") do
-        hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@local_yaml)
-        files = hot_resolver.get_files
+      test_cases = [
+        [@local_yaml, ["local.yaml", "hot_1.yaml"]]
+      ]
+      test_cases.each do |data, expected|
+        expected = prefix_with_url(expected, @base_url)
+        hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(data)
+        files = hot_resolver.get_files()
         Fog::Logger.warning("Processed files: #{files.keys}")
-        assert_equal_set(files.keys, prefix_with_url(["local.yaml", "hot_1.yaml"], @base_url))
+        assert_equal_set(files.keys, expected)
       end
     end
 
-    it "#modify_template" do
-      Dir.chdir("test/requests/orchestration") do
-        hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@local_yaml)
-        hot_resolver.get_files
-        template = hot_resolver.template
+    it "#dont_modify_passed_template" do
+      hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@local_yaml)
+      hot_resolver.get_files()
+      template = hot_resolver.template
 
-        # The template argument should be modified.
-        assert(template['resources']['a_file']['type'].start_with?('file:///'))
+      # The template argument should be modified.
+      assert(template['resources']['a_file']['type'].start_with?('file:///'))
 
-        # No side effect on the original template.
-        assert(!@local_yaml['resources']['a_file']['type'].start_with?('file:///'))
-      end
+      # No side effect on the original template.
+      assert(!@local_yaml['resources']['a_file']['type'].start_with?('file:///'))
     end
   end
 end
