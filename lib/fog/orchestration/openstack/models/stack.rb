@@ -13,7 +13,7 @@ module Fog
         end
 
         def save(options = {})
-          if persisted?
+          if persisted?        
             stack_default_options = default_options
             if (options.key?(:template_url))
               stack_default_options.delete(:template)

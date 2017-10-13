@@ -69,7 +69,7 @@ def array_differences(array_a, array_b)
 end
 
 def prefix_with_url(files, base_url)
-  return files.map {|fname| File.join(base_url.to_s , fname)}.compact
+  files.map { |fname| File.join(base_url.to_s, fname) }.compact
 end
 
 def assert_equal_set(a, b)

@@ -47,7 +47,6 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       'links' => Array,
       'files' => Hash
     }
-
   end
 
   describe "success" do
@@ -57,8 +56,8 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
 
     it "#create_stack_with_files" do
       args = {
-        :stack_name => "teststack_files", 
-        :files => {'foo.sh'=>'hello'}
+        :stack_name => "teststack_files",
+        :files      => {'foo.sh'=>'hello'}
       }
       @stack = @orchestration.create_stack(args).body.must_match_schema(@create_format_files)
     end
@@ -66,14 +65,14 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
     it "#create_stack_resolve_files" do
       Dir.chdir("/code/test/requests/orchestration") do
         args = {
-          :stack_name => "teststack_files", 
-          :template   => YAML.load(open("local.yaml")),
+          :stack_name => "teststack_files",
+          :template   => YAML.safe_load(open("local.yaml")),
         }
-        response = @orchestration.create_stack(args) 
+        response = @orchestration.create_stack(args)
         response.body.must_match_schema(@create_format_files)
         files = response.body['files']
-        Fog::Logger.warning("Request processed: #{files.keys()}")
-        assert_equal_set(["file:///code/test/requests/orchestration/local.yaml", "file:///code/test/requests/orchestration/hot_1.yaml"], files.keys())
+        Fog::Logger.warning("Request processed: #{files.keys}")
+        assert_equal_set(["file:///code/test/requests/orchestration/local.yaml", "file:///code/test/requests/orchestration/hot_1.yaml"], files.keys)
       end
     end
 

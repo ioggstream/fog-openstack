@@ -20,7 +20,7 @@ module Fog
 
         def create_stack(arg1, arg2 = nil)
           if arg1.kind_of?(Hash)
-            # Normal use: create_stack(options)
+            # Normal use: create_stack(options)            
             options = arg1
           else
             # Deprecated: create_stack(stack_name, options = {})
@@ -29,20 +29,21 @@ module Fog
               :stack_name => arg1
             }.merge(arg2.nil? ? {} : arg2)
           end
-
-          params = {
+          
+          # Eventually resolve files and update original template.
+          hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template])
+          files = hot_resolver.get_files()
+          if files
+            options['files'] = files
+            options['template'] = hot_resolver.template
+          end
+          
+          request(
             :expects => 201,
             :path    => 'stacks',
             :method  => 'POST',
             :body    => Fog::JSON.encode(options)
-          }
-
-          # Eventually resolve files.
-          hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template])
-          files = hot_resolver.get_files()
-          params[:files] = files if files
-          
-          request(params)
+          )
         end
       end
 

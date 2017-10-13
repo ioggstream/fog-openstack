@@ -27,7 +27,15 @@ module Fog
               :stack_name => stack_name
             }.merge(arg3.nil? ? {} : arg3)
           end
-
+          
+          # Eventually resolve files and update original template.
+          hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template])
+          files = hot_resolver.get_files()
+          if files
+            options['files'] = files
+            options['template'] = hot_resolver.template
+          end
+          
           request(
             :expects => 202,
             :path    => "stacks/#{stack_name}/#{stack_id}",
