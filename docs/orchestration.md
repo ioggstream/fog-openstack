@@ -78,6 +78,16 @@ service.stacks.new.save({
   :parameters => {"flavor" => "m1.small", "image" => "cirror"}
 })
 ```
+
+You can either specify a `raw_template` or a `template_url`
+```ruby
+service.stacks.new.save({
+  :stack_name   => "a_name_for_stack",
+  :template_url => "http://example.com/template.yaml",
+  :parameters   => {"flavor" => "m1.small", "image" => "cirror"}
+})
+```
+
 This returns a JSON blob filled with information about our new stack:
 
 ```ruby
