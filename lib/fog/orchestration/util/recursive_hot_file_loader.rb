@@ -17,31 +17,52 @@ module Fog
       class RecursiveHotFileLoader
         attr_reader :files
         attr_reader :template
+        attr_reader :template_ori
         attr_reader :visited
         attr_reader :max_files_size
 
         def initialize(template)
-          # Ensure template is a brand new yaml dict.
-          if template.kind_of?(String) && is_template(template)
-            template = YAML.safe_load(template)
-          elsif template.kind_of?(Hash)
-            template = YAML.safe_load(YAML.dump(template))
-          else
-            raise NotImplementedError, "template must be either String or a Hash"
-          end
-
           @template = template
+          @template_ori = template
           @template_base_url = nil
           @files = {}
           @max_files_size = (128 * 1 << 10)
           @visited = {}
         end
 
+        def process_template_path(template_path, _object_request=nil, _existing=nil)
+          # Read template from template path.
+
+          # Attempt to read template first as a file or url. If that is unsuccessful,
+          # try again assuming path is to a template object.
+
+          # :param template_path: local or uri path to template
+          # :param object_request: custom object request function used to get template
+          #                        if local or uri path fails
+          # :param existing: if the current stack's template should be used
+          # :returns: get_file dict and template contents
+          # :raises: error.URLError
+
+          begin
+              return get_template_contents(template_file=template_path,
+                                           existing=existing)
+          rescue Exception => template_file_exc  # FIXME find a suitable exception
+              begin
+                  return get_template_contents(template_object=template_path,
+                                               object_request=object_request,
+                                               existing=existing)
+              rescue Exception
+                  # The initial exception gives the user better failure context.
+                  raise template_file_exc
+              end
+          end
+        end
+
         def get_files
           Fog::Logger.warning("Processing template #{@template}")
-          get_file_contents(@template, base_url = normalise_file_path_to_url(Dir.pwd))
+          _, @template = get_template_contents(@template)
           Fog::Logger.warning("Template processed. Populated #{@files}")
-          @files
+          return @files
         end
 
         def files_basepath
@@ -82,7 +103,7 @@ module Fog
 
         def recurse_if(value)
           # Should I recurse into this template branch?
-          !!(value.kind_of?(Hash) || value.kind_of?(Array))
+          value.kind_of?(Hash) || value.kind_of?(Array)
         end
 
         def url_join(prefix, suffix)
@@ -132,19 +153,31 @@ module Fog
         end
 
         def get_template_contents(template_file, _template_url = nil, _template_object = nil, _existing = false)
+          # Same code for both template_file and template_url.
           Fog::Logger.warning("get_template_contents #{template_file}")
 
-          # in Fog, template is always an object
-          is_object = false
+          if template_file.kind_of?(String)
+            if is_template(template_file)
+              tpl = template_file
+              template_base_url = base_url_for_url(normalise_file_path_to_url(Dir.pwd+"/TEMPLATE"))
+            else
+              template_file = normalise_file_path_to_url(template_file)
+              template_base_url = base_url_for_url(template_file)
+              # TODO: normalize template_file
+              tpl = get_content(template_file)
+              @visited[template_file] = true
+              Fog::Logger.warning("Template visited: #{@visited}")
+            end
+            template = YAML.load(tpl)
+          elsif template_file.kind_of?(Hash)
+            # Normalize yaml.
+            Fog::Logger.warning("Reingest")
+            template = YAML.safe_load(YAML.dump(template_file))
+            template_base_url = base_url_for_url(normalise_file_path_to_url(Dir.pwd+"/TEMPLATE"))
+          else
+            raise NotImplementedError, "template should be Hash or String"
+          end
 
-          template_file = normalise_file_path_to_url(template_file)
-          template_base_url = base_url_for_url(template_file)
-          # TODO: normalize template_file
-          tpl = get_content(template_file)
-          template = YAML.safe_load(tpl)
-
-          @visited[template_file] = true
-          Fog::Logger.warning("Template visited: #{@visited}")
           get_file_contents(template, base_url = template_base_url)
 
           return nil, template

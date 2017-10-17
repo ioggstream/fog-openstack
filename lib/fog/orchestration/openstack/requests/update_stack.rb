@@ -32,8 +32,8 @@ module Fog
           hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(params[:template])
           files = hot_resolver.get_files()
           if files
-            params['files'] = files
-            params['template'] = hot_resolver.template
+            params[:files] = files
+            params[:template] = hot_resolver.template
           end
 
           request(

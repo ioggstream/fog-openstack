@@ -96,19 +96,22 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
 
     it "#get_file_contents_http_template" do
       test_cases = @data["get_file_contents_http_template"].map do |testcase|
-        #    [ testcase['input'], testcase['expected'] ]
+        #   [ testcase['input'], testcase['expected'] ]
       end.compact
       test_cases.each do |data, expected|
-        hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
-        hot_resolver.get_file_contents(data)
+        hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(data)
+        hot_resolver.get_files()
         Fog::Logger.warning("Processed files: #{hot_resolver.files.keys}")
         assert_equal_set(hot_resolver.files.keys, expected)
       end
     end
 
-    it "#recurse_template" do
+    it "#recurse_template_and_file" do
       test_cases = [
-        [@local_yaml, ["local.yaml", "hot_1.yaml"]]
+        [@local_yaml, ["local.yaml", "hot_1.yaml"]],
+        ["local.yaml", ["local.yaml", "hot_1.yaml"]],
+        ["no_recursion.yaml", ["no_recursion.yaml"]],
+        ["local_fullpath.yaml", ["local_fullpath.yaml", "local.yaml", "hot_1.yaml"]]
       ]
       test_cases.each do |data, expected|
         expected = prefix_with_url(expected, @base_url)
@@ -125,7 +128,7 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       template = hot_resolver.template
 
       # The template argument should be modified.
-      assert(template['resources']['a_file']['type'].start_with?('file:///'))
+      assert(template['resources']['a_file']['type'].start_with?('file:///'), hot_resolver.template)
 
       # No side effect on the original template.
       assert(!@local_yaml['resources']['a_file']['type'].start_with?('file:///'))

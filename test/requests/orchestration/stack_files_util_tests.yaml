@@ -1,6 +1,9 @@
 
 get_file_contents_http_template:
-  - input: 
+  - input: "https://raw.githubusercontent.com/ioggstream/heat-templates/test_fog/hot/fog_1.yaml"
+    expected:
+    - "https://raw.githubusercontent.com/ioggstream/heat-templates/test_fog/hot/fog_2.yaml"
+  - input:
       type:
         "https://raw.githubusercontent.com/redhat-openstack/openshift-on-openstack/master/openshift.yaml"
     expected:
@@ -50,7 +53,7 @@ get_file_contents_http_template:
     - https://raw.githubusercontent.com/redhat-openstack/openshift-on-openstack/master/fragments/bastion-node-add.sh
     - https://raw.githubusercontent.com/redhat-openstack/openshift-on-openstack/master/templates/var/lib/ansible/roles/fstab_mount_options/tasks/main.yml
     - https://raw.githubusercontent.com/redhat-openstack/openshift-on-openstack/master/templates/var/lib/ansible/inventory
-  - input: 
+  - input:
       type: >-
         https://raw.githubusercontent.com/redhat-openstack/openshift-on-openstack/master/collect-config-setup/install_config_agent_centos_yum.yaml
     expected:
