@@ -28,13 +28,18 @@ module Fog
             }.merge(arg3.nil? ? {} : arg3)
           end
 
-          # Eventually resolve files and update original template.
-          hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(params[:template])
+          # Templates should always:
+          #  - be strings
+          #  - contain URI references instead of relative paths.
+          # Passing :template_url may not work well with `get_files` and remote `type`:
+          #  the python client implementation in shade retrieves from :template_uri
+          #  and replaces it with :template.
+          #  see https://github.com/openstack-infra/shade/blob/master/shade/openstackcloud.py#L1201
+          #  see https://developer.openstack.org/api-ref/orchestration/v1/index.html#create-stack
+          hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url])
           files = hot_resolver.get_files()
-          if files
-            params[:files] = files
-            params[:template] = hot_resolver.template
-          end
+          options[:template] = hot_resolver.template
+          options[:files] = files if files
 
           request(
             :expects => 202,

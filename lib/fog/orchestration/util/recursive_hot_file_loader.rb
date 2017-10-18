@@ -30,34 +30,6 @@ module Fog
           @visited = {}
         end
 
-        def process_template_path(template_path, _object_request=nil, _existing=nil)
-          # Read template from template path.
-
-          # Attempt to read template first as a file or url. If that is unsuccessful,
-          # try again assuming path is to a template object.
-
-          # :param template_path: local or uri path to template
-          # :param object_request: custom object request function used to get template
-          #                        if local or uri path fails
-          # :param existing: if the current stack's template should be used
-          # :returns: get_file dict and template contents
-          # :raises: error.URLError
-
-          begin
-              return get_template_contents(template_file=template_path,
-                                           existing=existing)
-          rescue Exception => template_file_exc  # FIXME find a suitable exception
-              begin
-                  return get_template_contents(template_object=template_path,
-                                               object_request=object_request,
-                                               existing=existing)
-              rescue Exception
-                  # The initial exception gives the user better failure context.
-                  raise template_file_exc
-              end
-          end
-        end
-
         def get_files
           Fog::Logger.warning("Processing template #{@template}")
           _, @template = get_template_contents(@template)
@@ -156,10 +128,11 @@ module Fog
           # Same code for both template_file and template_url.
           Fog::Logger.warning("get_template_contents #{template_file}")
 
+          local_base_url = base_url_for_url(normalise_file_path_to_url(Dir.pwd + "/TEMPLATE"))
           if template_file.kind_of?(String)
             if is_template(template_file)
               tpl = template_file
-              template_base_url = base_url_for_url(normalise_file_path_to_url(Dir.pwd+"/TEMPLATE"))
+              template_base_url = local_base_url
             else
               template_file = normalise_file_path_to_url(template_file)
               template_base_url = base_url_for_url(template_file)
@@ -173,7 +146,7 @@ module Fog
             # Normalize yaml.
             Fog::Logger.warning("Reingest")
             template = YAML.safe_load(YAML.dump(template_file))
-            template_base_url = base_url_for_url(normalise_file_path_to_url(Dir.pwd+"/TEMPLATE"))
+            template_base_url = local_base_url
           else
             raise NotImplementedError, "template should be Hash or String"
           end

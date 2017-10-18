@@ -3,6 +3,11 @@ require 'fog/core'
 
 describe "Fog::Orchestration[:openstack] | stack requests" do
   before do
+    @oldcwd = Dir.pwd
+    Dir.chdir("test/requests/orchestration")
+    @base_url = URI.join("file:", File.absolute_path("."))
+    @base_url.host = ""
+
     @orchestration = Fog::Orchestration[:openstack]
 
     @stack_format = {
@@ -48,6 +53,9 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       'files' => Hash
     }
   end
+  after do
+    Dir.chdir(@oldcwd)
+  end
 
   describe "success" do
     it "#create_stack" do
@@ -63,17 +71,16 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
     end
 
     it "#create_stack_resolve_files" do
-      Dir.chdir("/code/test/requests/orchestration") do
-        args = {
-          :stack_name => "teststack_files",
-          :template   => YAML.safe_load(open("local.yaml")),
-        }
-        response = @orchestration.create_stack(args)
-        response.body.must_match_schema(@create_format_files)
-        files = response.body['files']
-        Fog::Logger.warning("Request processed: #{files.keys}")
-        assert_equal_set(["file:///code/test/requests/orchestration/local.yaml", "file:///code/test/requests/orchestration/hot_1.yaml"], files.keys)
-      end
+      expected = prefix_with_url(["local.yaml", "hot_1.yaml"], @base_url.to_s)
+      args = {
+        :stack_name => "teststack_files",
+        :template   => YAML.safe_load(open("local.yaml")),
+      }
+      response = @orchestration.create_stack(args)
+      response.body.must_match_schema(@create_format_files)
+      files = response.body['files']
+      Fog::Logger.warning("Request processed: #{files.keys}")
+      assert_equal_set(expected, files.keys)
     end
 
     it "#list_stack_data" do

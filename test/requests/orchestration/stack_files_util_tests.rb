@@ -18,7 +18,7 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
     @local_yaml = YAML.safe_load(open("local.yaml"))
     @hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
     @base_url = URI.join("file:", File.absolute_path("."))
-    @base_url.host = ""  # fix
+    @base_url.host = ""
   end
   after do
     Dir.chdir(@oldcwd)
