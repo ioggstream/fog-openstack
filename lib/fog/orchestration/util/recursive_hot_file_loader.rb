@@ -63,10 +63,26 @@ module Fog
           end
         end
 
-        def template?(content)
+        def template_is_raw?(content)
           # Return true if the file is an heat template, false otherwise.
           htv = content.index("heat_template_version:")
           !!(htv && htv < 5)
+        end
+
+        def template_is_url?(path)
+          # return true if it's an URI, false otherwise.
+          normalise_file_path_to_url(path)
+          return true
+        rescue ArgumentError, URI::InvalidURIError
+          return false
+        end
+
+        def file_outside_base_url(base_url, str_url)
+          ret = base_url && str_url.start_with?("file://") && !str_url.start_with?(base_url)
+          if ret
+            Fog::Logger.warning("Trying to reference a file outside #{base_url}: #{str_url}")
+          end
+          ret
         end
 
         def fixup_uri(uri)
@@ -146,27 +162,26 @@ module Fog
           Fog::Logger.warning("get_template_contents #{template_file}")
 
           local_base_url = base_url_for_url(normalise_file_path_to_url(Dir.pwd + "/TEMPLATE"))
-          if template_file.kind_of?(String)
-            if template?(template_file)
-              tpl = template_file
-              template_base_url = local_base_url
-            else
-              template_file = normalise_file_path_to_url(template_file)
-              template_base_url = base_url_for_url(template_file)
-              # TODO: normalize template_file
-              tpl = get_content(template_file)
-              @visited[template_file] = true
-              Fog::Logger.warning("Template visited: #{@visited}")
-            end
-            template = yaml_load(tpl)
-          elsif template_file.kind_of?(Hash)
-            # Normalize yaml.
-            Fog::Logger.warning("Reingest")
-            template = yaml_load(YAML.dump(template_file))
+
+          raise NotImplementedError, "template_file should be Hash or String" unless
+            template_file.kind_of?(String) || template_file.kind_of?(Hash)
+
+          if template_file.kind_of?(Hash)
             template_base_url = local_base_url
+            raw_template = YAML.dump(template_file)
+          elsif template_is_raw?(template_file)
+            raw_template = template_file
+            template_base_url = local_base_url
+          elsif template_is_url?(template_file)
+            template_file = normalise_file_path_to_url(template_file)
+            template_base_url = base_url_for_url(template_file)
+            raw_template = get_content(template_file)
+            @visited[template_file] = true
+            Fog::Logger.warning("Template visited: #{@visited}")
           else
-            raise NotImplementedError, "template should be Hash or String"
+            raise NotImplementedError, "template_file is not a string of the expected form"
           end
+          template = yaml_load(raw_template)
 
           get_file_contents(template, template_base_url)
 
@@ -177,12 +192,7 @@ module Fog
           Fog::Logger.warning("Processing #{from_data} with base_url #{base_url}")
 
           if recurse_if(from_data)
-            recurse_data = if from_data.kind_of?(Hash)
-                             from_data.to_a
-                           else
-                             from_data
-                           end
-
+            recurse_data = from_data.kind_of?(Hash) ? from_data.to_a : from_data
             recurse_data.each do |value|
               get_file_contents(value, base_url)
             end
@@ -195,24 +205,17 @@ module Fog
               Fog::Logger.debug("Inspecting #{key}, #{value} at #{base_url}")
 
               # Resolve relative paths.
-              if base_url && !base_url.end_with?('/')
-                base_url += '/'
-              end
-
+              base_url += '/' if base_url && !base_url.end_with?('/')
               str_url = url_join(base_url, value)
-              next if @files.key?(str_url)
 
-              # Don't process file:// outside our base_url.
-              # TODO raise an exception here?
-              if base_url && str_url.start_with?("file://") && !str_url.start_with?(base_url)
-                Fog::Logger.warning("Trying to reference a file outside #{base_url}: #{str_url}")
-                next
-              end
+              next if @files.key?(str_url)
+              # Don't process file:// outside our base_url. TODO raise an exception here?
+              next if file_outside_base_url(base_url, str_url)
 
               file_content = get_content(str_url)
 
               # get_file should not recurse hot templates.
-              if key == "type" && template?(file_content) && !(@visited[str_url])
+              if key == "type" && template_is_raw?(file_content) && !(@visited[str_url])
                 template = get_template_contents(str_url)[1]
                 file_content = YAML.dump(template)
               end
