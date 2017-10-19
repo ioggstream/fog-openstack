@@ -10,6 +10,7 @@ module Fog
         #   or (one of the two Template parameters is required)
         #   * :template_url [String] URL of file containing the template body.
         #   * :parameters [Hash] Hash of providers to supply to template.
+        #   * :files [Hash] Hash with files resources.
         #
         def update_stack(arg1, arg2 = nil, arg3 = nil)
           if arg1.kind_of?(Stack)
@@ -36,9 +37,11 @@ module Fog
           #  and replaces it with :template.
           #  see https://github.com/openstack-infra/shade/blob/master/shade/openstackcloud.py#L1201
           #  see https://developer.openstack.org/api-ref/orchestration/v1/index.html#create-stack
-          hot_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url])
-          files = hot_resolver.get_files()
-          options[:template] = hot_resolver.template
+          file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url])
+          # Merge passed and retrieved :files like openstack-infra/shade
+          #  see https://github.com/openstack-infra/shade/blob/1d16f64fbf376a956cafed1b3edd8e51ccc16f2c/shade/openstackcloud.py#L1200
+          files = (options[:files] || {}).merge(file_resolver.get_files)
+          options[:template] = file_resolver.template
           options[:files] = files if files
 
           request(

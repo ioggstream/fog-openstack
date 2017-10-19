@@ -5,8 +5,7 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
   before do
     @oldcwd = Dir.pwd
     Dir.chdir("test/requests/orchestration")
-    @base_url = URI.join("file:", File.absolute_path("."))
-    @base_url.host = ""
+    @base_url = "file://" + File.absolute_path(".")
 
     @orchestration = Fog::Orchestration[:openstack]
 
@@ -71,10 +70,10 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
     end
 
     it "#create_stack_resolve_files" do
-      expected = prefix_with_url(["local.yaml", "hot_1.yaml"], @base_url.to_s)
+      expected = prefix_with_url(["local.yaml", "hot_1.yaml"], @base_url)
       args = {
         :stack_name => "teststack_files",
-        :template   => YAML.safe_load(open("local.yaml")),
+        :template   => YAML.load(open("local.yaml")),
       }
       response = @orchestration.create_stack(args)
       response.body.must_match_schema(@create_format_files)
