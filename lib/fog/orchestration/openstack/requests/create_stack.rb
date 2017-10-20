@@ -40,8 +40,6 @@ module Fog
           #  see https://github.com/openstack-infra/shade/blob/master/shade/openstackcloud.py#L1201
           #  see https://developer.openstack.org/api-ref/orchestration/v1/index.html#create-stack
           file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url], options[:files])
-          # Merge passed and retrieved :files like openstack-infra/shade
-          #  see https://github.com/openstack-infra/shade/blob/1d16f64fbf376a956cafed1b3edd8e51ccc16f2c/shade/openstackcloud.py#L1200
           files = file_resolver.get_files
           options[:template] = file_resolver.template
           options[:files] = files if files

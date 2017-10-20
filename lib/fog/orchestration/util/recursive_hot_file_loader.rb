@@ -3,7 +3,6 @@ require 'open-uri'
 require 'objspace'
 require 'fog/core'
 require 'set'
-require 'fog/orchestration/util/file_uri'
 
 module Fog
   module Orchestration
@@ -13,7 +12,10 @@ module Fog
       #  a files Hash conforming to Heat Specs
       #  https://developer.openstack.org/api-ref/orchestration/v1/index.html?expanded=create-stack-detail#stacks
       #
-      # Passed :files are not processed further.
+      # Files present in :files are not processed further. The others
+      #   are added to the Hash. This behavior is the same implemented in openstack-infra/shade
+      #   see https://github.com/openstack-infra/shade/blob/1d16f64fbf376a956cafed1b3edd8e51ccc16f2c/shade/openstackcloud.py#L1200
+
       #
       # This implementation just process nested templates but not resource
       #  registries.
@@ -78,7 +80,10 @@ module Fog
         end
 
         def ignore_if(key, value)
-          # Should I attach this file?
+          # Return true if I should I process this this file.
+          #
+          # @param [String] An heat template key
+          #
           return true if key != 'get_file' && key != 'type'
 
           return true unless value.kind_of?(String)
@@ -90,15 +95,15 @@ module Fog
         end
 
         def recurse_if(value)
-          # Should I recurse into this template branch?
+          # Return true if I should inspect this yaml template branch.
           value.kind_of?(Hash) || value.kind_of?(Array)
         end
 
         def url_join(prefix, suffix)
-          # return string
+          # Return string
           if prefix
             suffix = URI.join(prefix, suffix)
-            suffix = suffix.to_s
+            suffix = suffix.to_s.sub(%r{^file:\/+}, "file:///")
           end
           suffix
         end
@@ -107,7 +112,7 @@ module Fog
           # Returns the string baseurl of the given url.
           parsed = URI(url)
           parsed_dir = File.dirname(parsed.path)
-          URI.join(parsed, parsed_dir).to_s
+          url_join(parsed, parsed_dir)
         end
 
         def normalise_file_path_to_url(path)
@@ -119,7 +124,11 @@ module Fog
         end
 
         def get_content(uri_or_filename)
-          Fog::Logger.warning("Opening #{uri_or_filename}")
+          # Retrive the content of a local or remote file.
+          #
+          # @param A local or remote uri.
+          #
+          Fog::Logger.debug("Opening #{uri_or_filename}")
           uri_or_filename = uri_or_filename.to_s if uri_or_filename.kind_of?(URI)
           # throw exceptions enables stack creation to fail
           #   with a suitable error.
@@ -130,20 +139,27 @@ module Fog
           # XXX Limit download file size
           # XXX Protect from vanilla open-uri attacks
           uri_or_filename = uri_or_filename[7..-1] if uri_or_filename.start_with?("file:///")
-          open(uri_or_filename) { |f| content = f.read }
-          content == "Error" ? nil : content
 
+          open(uri_or_filename) { |f| content = f.read }
           content
         end
 
         def get_template_contents(template_file)
-          # Same code for both template_file and template_url.
+          # Retrieve a template content.
+          #
+          # @param template_file can be either:
+          #          - a raw_template string
+          #          - an URI string
+          #          - an Hash containing the parsed template.
+          #
+          # XXX: after deprecation of Ruby 1.9 we could use
+          #      named parameters and better mimic heatclient implementation.
           Fog::Logger.warning("get_template_contents #{template_file}")
 
-          local_base_url = base_url_for_url(normalise_file_path_to_url(Dir.pwd + "/TEMPLATE"))
-
-          raise NotImplementedError, "template_file should be Hash or String" unless
+          raise ArgumentError, "template_file should be Hash or String" unless
             template_file.kind_of?(String) || template_file.kind_of?(Hash)
+
+          local_base_url = base_url_for_url(normalise_file_path_to_url(Dir.pwd + "/TEMPLATE"))
 
           if template_file.kind_of?(Hash)
             template_base_url = local_base_url
@@ -155,8 +171,9 @@ module Fog
             template_file = normalise_file_path_to_url(template_file)
             template_base_url = base_url_for_url(template_file)
             raw_template = get_content(template_file)
-            @visited[template_file] = true
+
             Fog::Logger.warning("Template visited: #{@visited}")
+            @visited[template_file] = true
           else
             raise NotImplementedError, "template_file is not a string of the expected form"
           end
@@ -168,8 +185,15 @@ module Fog
         end
 
         def get_file_contents(from_data, base_url = nil)
+          # Traverse the template tree looking for get_file and type
+          #   and populating the @files attribute with their content.
+          #   Resource referenced by get_file and type are eventually
+          #   replaced with their absolute URI as done in heatclient
+          #   and shade.
+          #
           Fog::Logger.warning("Processing #{from_data} with base_url #{base_url}")
 
+          # Recursively traverse the tree.
           if recurse_if(from_data)
             recurse_data = from_data.kind_of?(Hash) ? from_data.to_a : from_data
             recurse_data.each do |value|
@@ -177,7 +201,7 @@ module Fog
             end
           end
 
-          # Actually processing data.
+          # I'm on a Hash, process it.
           if from_data.kind_of?(Hash)
             from_data.each do |key, value|
               next if ignore_if(key, value)
@@ -198,9 +222,10 @@ module Fog
                 template = get_template_contents(str_url)[1]
                 file_content = YAML.dump(template)
               end
+
               @files[str_url] = file_content
               # replace the data value with the normalised absolute URL
-              Fog::Logger.warning("Replacing #{key} with #{str_url} in #{from_data}")
+              Fog::Logger.debug("Replacing #{key} with #{str_url} in #{from_data}")
               from_data[key] = str_url
             end
           end
