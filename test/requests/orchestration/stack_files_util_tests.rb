@@ -1,7 +1,7 @@
 require "test_helper"
 require "yaml"
 require "open-uri"
-require "fog/orchestration/util/recursive_hot_file_loader" # FIXME: is there a better way to require this file?
+require "fog/orchestration/util/recursive_hot_file_loader"
 
 describe "Fog::Orchestration[:openstack] | stack requests" do
   @create_format_files = {
@@ -18,14 +18,12 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
     @data = @file_resolver.yaml_load(open("stack_files_util_tests.yaml"))
     @template_yaml = @file_resolver.yaml_load(open("template.yaml"))
     @local_yaml = @file_resolver.yaml_load(open("local.yaml"))
-
   end
   after do
     Dir.chdir(@oldcwd)
   end
 
   describe "success" do
-
     it "#get_file_contents_simple" do
       test_cases = [
         ["a string", {}],

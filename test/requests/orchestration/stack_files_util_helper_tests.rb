@@ -1,7 +1,7 @@
 require "test_helper"
 require "yaml"
 require "open-uri"
-require "fog/orchestration/util/recursive_hot_file_loader" # FIXME: is there a better way to require this file?
+require "fog/orchestration/util/recursive_hot_file_loader"
 
 describe "Fog::Orchestration[:openstack] | stack requests" do
   @create_format_files = {

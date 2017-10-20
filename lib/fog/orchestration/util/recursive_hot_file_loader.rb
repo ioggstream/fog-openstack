@@ -3,17 +3,7 @@ require 'open-uri'
 require 'objspace'
 require 'fog/core'
 require 'set'
-
-# Ruby URI is not round-trip safe when schema == file
-#  eg. URI("file:///a.out").to_s != file:///a.out"
-module URI
-  class FILE < Generic
-    def to_s
-      super.to_s.sub(%r{^file:\/+}, "file:///")
-    end
-  end
-  @@schemes['FILE'] = FILE
-end
+require 'fog/orchestration/util/file_uri'
 
 module Fog
   module Orchestration
@@ -22,6 +12,8 @@ module Fog
       # Resolve get_file resources found in a HOT template populating
       #  a files Hash conforming to Heat Specs
       #  https://developer.openstack.org/api-ref/orchestration/v1/index.html?expanded=create-stack-detail#stacks
+      #
+      # Passed :files are not processed further.
       #
       # This implementation just process nested templates but not resource
       #  registries.
@@ -32,11 +24,11 @@ module Fog
         attr_reader :visited
         attr_reader :max_files_size
 
-        def initialize(template)
+        def initialize(template, files = nil)
           @template = template
           @template_ori = template
           @template_base_url = nil
-          @files = {}
+          @files = files || {}
           @max_files_size = (128 * 1 << 10)
           @visited = {}
         end
@@ -85,15 +77,6 @@ module Fog
           ret
         end
 
-        def fixup_uri(uri)
-          # # Ruby URI is not round-trip safe when schema == file
-          # #  eg. URI("file:///a.out").to_s != file:///a.out"
-          # if uri.kind_of?(URI) && uri.scheme == "file"
-          #   uri.host = "" unless RUBY_VERSION < "2"
-          # end
-          uri
-        end
-
         def ignore_if(key, value)
           # Should I attach this file?
           return true if key != 'get_file' && key != 'type'
@@ -115,7 +98,6 @@ module Fog
           # return string
           if prefix
             suffix = URI.join(prefix, suffix)
-            fixup_uri(suffix)
             suffix = suffix.to_s
           end
           suffix
@@ -124,8 +106,6 @@ module Fog
         def base_url_for_url(url)
           # Returns the string baseurl of the given url.
           parsed = URI(url)
-          # Ruby URI is not round-trip safe when schema == file
-          fixup_uri(parsed)
           parsed_dir = File.dirname(parsed.path)
           URI.join(parsed, parsed_dir).to_s
         end
@@ -140,7 +120,6 @@ module Fog
 
         def get_content(uri_or_filename)
           Fog::Logger.warning("Opening #{uri_or_filename}")
-          uri_or_filename = fixup_uri(uri_or_filename)
           uri_or_filename = uri_or_filename.to_s if uri_or_filename.kind_of?(URI)
           # throw exceptions enables stack creation to fail
           #   with a suitable error.

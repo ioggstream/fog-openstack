@@ -1,3 +1,5 @@
+require "fog/orchestration/util/recursive_hot_file_loader"
+
 module Fog
   module Orchestration
     class OpenStack
@@ -37,10 +39,10 @@ module Fog
           #  and replaces it with :template.
           #  see https://github.com/openstack-infra/shade/blob/master/shade/openstackcloud.py#L1201
           #  see https://developer.openstack.org/api-ref/orchestration/v1/index.html#create-stack
-          file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url])
+          file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url], options[:files])
           # Merge passed and retrieved :files like openstack-infra/shade
           #  see https://github.com/openstack-infra/shade/blob/1d16f64fbf376a956cafed1b3edd8e51ccc16f2c/shade/openstackcloud.py#L1200
-          files = (options[:files] || {}).merge(file_resolver.get_files)
+          files = file_resolver.get_files
           options[:template] = file_resolver.template
           options[:files] = files if files
 
@@ -69,6 +71,16 @@ module Fog
             options = {
               :stack_name => stack_name
             }.merge(arg3.nil? ? {} : arg3)
+          end
+
+          if options.key?(:files)
+            response.body['files'] = {'foo.sh' => 'hello'}
+          end
+
+          if options.key?(:template) || options.key?(:template_url)
+            file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url], options[:files])
+            files = file_resolver.get_files
+            response.body['files'] = files if files
           end
 
           response = Excon::Response.new
