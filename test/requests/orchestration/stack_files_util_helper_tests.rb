@@ -24,31 +24,28 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
   end
 
   describe "success" do
-    it "#template_file_is_hot" do
-      assert(@file_resolver.template_is_raw?(YAML.dump(@template_yaml)), true)
-    end
-
     it "#template_file_is_file" do
-      assert(@file_resolver.template_is_url?("local.yaml"))
-      refute(@file_resolver.template_is_url?(YAML.dump(@template_yaml)))
-      refute(@file_resolver.template_is_url?(@template_yaml))
+      assert(@file_resolver.send(:template_is_raw?, YAML.dump(@template_yaml)), true)
+      assert(@file_resolver.send(:template_is_url?, "local.yaml"))
+      refute(@file_resolver.send(:template_is_url?, YAML.dump(@template_yaml)))
+      refute(@file_resolver.send(:template_is_url?, @template_yaml))
     end
 
     it "#get_content_local" do
-      content = @file_resolver.get_content("template.yaml")
+      content = @file_resolver.send(:get_content, "template.yaml")
       assert_includes(content, "heat_template_version")
     end
 
     it "#get_content_remote" do
       skip if Fog.mocking?
-      content = @file_resolver.get_content("https://www.google.com/robots.txt")
+      content = @file_resolver.send(:get_content, "https://www.google.com/robots.txt")
       assert_includes(content, "Disallow:")
     end
 
     it "#get_content_404" do
       skip if Fog.mocking?
       assert_raises OpenURI::HTTPError do
-        @file_resolver.get_content("https://www.google.com/NOOP")
+        @file_resolver.send(:get_content, "https://www.google.com/NOOP")
       end
     end
 
@@ -60,7 +57,7 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       ]
       test_cases.each do |uri|
         assert_raises ArgumentError do
-          @file_resolver.get_content(uri)
+          @file_resolver.send(:get_content, uri)
         end
       end
     end
@@ -75,7 +72,7 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
         %w(https://h.com/a/b/f.txt https://h.com/a/b),
       ]
       test_cases.each do |data, expected|
-        assert_equal(@file_resolver.base_url_for_url(data).to_s, expected)
+        assert_equal(@file_resolver.send(:base_url_for_url, data).to_s, expected)
       end
     end
   end

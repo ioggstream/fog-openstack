@@ -34,7 +34,7 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       ]
       test_cases.each do |data, expected|
         file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
-        file_resolver.get_file_contents(data)
+        file_resolver.send(:get_file_contents, data)
         assert_equal(file_resolver.files, expected)
       end
     end
@@ -44,14 +44,28 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       #  values are absolute paths uri and should be resolved with the local
       #  directory.
       test_cases = @data['get_file_contents_local_template'].map do |testcase|
-        [ testcase['input'], testcase['expected'] ]
+        [testcase['input'], testcase['expected']]
       end.compact
       test_cases.each do |data, expected|
         Fog::Logger.warning("Testing with #{data} #{expected}")
         expected = prefix_with_url(expected, @base_url)
         file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
-        file_resolver.get_file_contents(data, @base_url)
+        file_resolver.send(:get_file_contents, data, @base_url)
         assert_equal(file_resolver.files.keys, expected)
+      end
+    end
+
+    it "#get_file_contents_invalid" do
+      test_cases = @data["get_files_invalid"].map do |testcase|
+        [testcase['input'], testcase['expected']]
+      end.compact
+      test_cases.each do |data, expected|
+        file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(data)
+
+        assert_raises ArgumentError, URI::InvalidURIError do
+          file_resolver.get_files
+        end
+
       end
     end
 

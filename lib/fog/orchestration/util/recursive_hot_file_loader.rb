@@ -48,12 +48,6 @@ module Fog
           @files
         end
 
-        def files_basepath
-          min_length = @files.keys.map(&:length).min
-          candidates = @files.keys.map { |x| File.dirname(x[0..min_length]) }.to_set
-          candidates.size == 1 ? candidates.first : nil
-        end
-
         # Return true if the file is an heat template, false otherwise.
         def template_is_raw?(content)
           htv = content.index("heat_template_version:")
@@ -138,7 +132,7 @@ module Fog
             url = URI(uri_or_filename)
 
             # Remote schemes must contain an host.
-            raise ArgumentError if url.host == nil && remote_schemes.include?(url.scheme)
+            raise ArgumentError if url.host.nil? && remote_schemes.include?(url.scheme)
 
             # Encode URI with spaces.
             uri_or_filename = URI.encode(URI.decode(URI(uri_or_filename).to_s))
@@ -150,7 +144,7 @@ module Fog
           # TODO: A future revision may limit download size.
           content = ''
           # open-uri doesn't open "file:///" uris.
-          uri_or_filename = uri_or_filename.sub(%r{file:}, "")
+          uri_or_filename = uri_or_filename.sub(%r/file:/, "")
 
           open(uri_or_filename) { |f| content = f.read }
           content
@@ -168,7 +162,7 @@ module Fog
         def get_template_contents(template_file)
           Fog::Logger.warning("get_template_contents #{template_file}")
 
-          raise ArgumentError, "template_file should be Hash or String" unless
+          raise "template_file should be Hash or String" unless
             template_file.kind_of?(String) || template_file.kind_of?(Hash)
 
           local_base_url = base_url_for_url(normalise_file_path_to_url(Dir.pwd + "/TEMPLATE"))
@@ -187,7 +181,7 @@ module Fog
             Fog::Logger.warning("Template visited: #{@visited}")
             @visited[template_file] = true
           else
-            raise NotImplementedError, "template_file is not a string of the expected form"
+            raise "template_file is not a string of the expected form"
           end
           template = yaml_load(raw_template)
 
@@ -242,6 +236,14 @@ module Fog
             end
           end
         end
+        private :file_outside_base_url?
+        private :get_content
+        private :normalise_file_path_to_url
+        private :base_url_for_url
+        private :ignore_if
+        private :recurse_if
+        private :template_is_raw?
+        private :template_is_url?
       end # Class
     end
   end
