@@ -1,8 +1,8 @@
+require 'set'
 require 'yaml'
 require 'open-uri'
 require 'objspace'
 require 'fog/core'
-require 'set'
 
 module Fog
   module Orchestration
@@ -42,36 +42,33 @@ module Fog
         end
 
         def get_files
-          Fog::Logger.warning("Processing template #{@template}")
+          Fog::Logger.debug("Processing template #{@template}")
           _, @template = get_template_contents(@template)
-          Fog::Logger.warning("Template processed. Populated #{@files}")
+          Fog::Logger.debug("Template processed. Populated #{@files}")
           @files
         end
 
         def files_basepath
-          min_lenght = @files.keys.map(&:length).min
-          candidates = @files.keys.map { |x| File.dirname(x[0..min_lenght]) }.to_set
-          return nil if candidates.size != 1
-          candidates.each do |x|
-            return x
-          end
+          min_length = @files.keys.map(&:length).min
+          candidates = @files.keys.map { |x| File.dirname(x[0..min_length]) }.to_set
+          candidates.size == 1 ? candidates.first : nil
         end
 
+        # Return true if the file is an heat template, false otherwise.
         def template_is_raw?(content)
-          # Return true if the file is an heat template, false otherwise.
           htv = content.index("heat_template_version:")
-          !!(htv && htv < 5)
+          htv && htv < 5
         end
 
+        # Return true if it's an URI, false otherwise.
         def template_is_url?(path)
-          # return true if it's an URI, false otherwise.
           normalise_file_path_to_url(path)
-          return true
+          true
         rescue ArgumentError, URI::InvalidURIError
-          return false
+          false
         end
 
-        def file_outside_base_url(base_url, str_url)
+        def file_outside_base_url?(base_url, str_url)
           ret = base_url && str_url.start_with?("file://") && !str_url.start_with?(base_url)
           if ret
             Fog::Logger.warning("Trying to reference a file outside #{base_url}: #{str_url}")
@@ -79,11 +76,11 @@ module Fog
           ret
         end
 
+        # Return true if I should I process this this file.
+        #
+        # @param [String] An heat template key
+        #
         def ignore_if(key, value)
-          # Return true if I should I process this this file.
-          #
-          # @param [String] An heat template key
-          #
           return true if key != 'get_file' && key != 'type'
 
           return true unless value.kind_of?(String)
@@ -94,13 +91,13 @@ module Fog
           false
         end
 
+        # Return true if I should inspect this yaml template branch.
         def recurse_if(value)
-          # Return true if I should inspect this yaml template branch.
           value.kind_of?(Hash) || value.kind_of?(Array)
         end
 
+        # Return string
         def url_join(prefix, suffix)
-          # Return string
           if prefix
             suffix = URI.join(prefix, suffix)
             suffix = suffix.to_s.sub(%r{^file:\/+}, "file:///")
@@ -108,52 +105,67 @@ module Fog
           suffix
         end
 
+        # Returns the string baseurl of the given url.
         def base_url_for_url(url)
-          # Returns the string baseurl of the given url.
           parsed = URI(url)
           parsed_dir = File.dirname(parsed.path)
           url_join(parsed, parsed_dir)
         end
 
+        # Nothing to do on URIs
         def normalise_file_path_to_url(path)
-          # Nothing to do on URIs
           return path if URI(path).scheme
 
           path = File.absolute_path(path)
           url_join('file:/', path)
         end
 
+        # Retrive the content of a local or remote file.
+        #
+        # @param A local or remote uri.
+        #
+        # @raise ArgumentError if it's not a valid uri
+        #
+        # Protect open-uri from malign arguments like
+        #  - "|ls"
+        #  - multiline strings
         def get_content(uri_or_filename)
-          # Retrive the content of a local or remote file.
-          #
-          # @param A local or remote uri.
-          #
+          remote_schemes = %w(http https ftp)
           Fog::Logger.debug("Opening #{uri_or_filename}")
-          uri_or_filename = uri_or_filename.to_s if uri_or_filename.kind_of?(URI)
-          # throw exceptions enables stack creation to fail
-          #   with a suitable error.
-          #
-          # XXX Implement a retry here?
+
+          begin
+            # Validate URI to protect from open-uri attacks.
+            url = URI(uri_or_filename)
+
+            # Remote schemes must contain an host.
+            raise ArgumentError if url.host == nil && remote_schemes.include?(url.scheme)
+
+            # Encode URI with spaces.
+            uri_or_filename = URI.encode(URI.decode(URI(uri_or_filename).to_s))
+          rescue URI::InvalidURIError
+            raise ArgumentError, "Not a valid URI: #{uri_or_filename}"
+          end
+
+          # TODO: A future revision may implement a retry.
+          # TODO: A future revision may limit download size.
           content = ''
-          # does ruby close the socket/filedescriptor at exit?
-          # XXX Limit download file size
-          # XXX Protect from vanilla open-uri attacks
-          uri_or_filename = uri_or_filename[7..-1] if uri_or_filename.start_with?("file:///")
+          # open-uri doesn't open "file:///" uris.
+          uri_or_filename = uri_or_filename.sub(%r{file:}, "")
 
           open(uri_or_filename) { |f| content = f.read }
           content
         end
 
+        # Retrieve a template content.
+        #
+        # @param template_file can be either:
+        #          - a raw_template string
+        #          - an URI string
+        #          - an Hash containing the parsed template.
+        #
+        # XXX: after deprecation of Ruby 1.9 we could use
+        #      named parameters and better mimic heatclient implementation.
         def get_template_contents(template_file)
-          # Retrieve a template content.
-          #
-          # @param template_file can be either:
-          #          - a raw_template string
-          #          - an URI string
-          #          - an Hash containing the parsed template.
-          #
-          # XXX: after deprecation of Ruby 1.9 we could use
-          #      named parameters and better mimic heatclient implementation.
           Fog::Logger.warning("get_template_contents #{template_file}")
 
           raise ArgumentError, "template_file should be Hash or String" unless
@@ -184,13 +196,13 @@ module Fog
           return nil, template
         end
 
+        # Traverse the template tree looking for get_file and type
+        #   and populating the @files attribute with their content.
+        #   Resource referenced by get_file and type are eventually
+        #   replaced with their absolute URI as done in heatclient
+        #   and shade.
+        #
         def get_file_contents(from_data, base_url = nil)
-          # Traverse the template tree looking for get_file and type
-          #   and populating the @files attribute with their content.
-          #   Resource referenced by get_file and type are eventually
-          #   replaced with their absolute URI as done in heatclient
-          #   and shade.
-          #
           Fog::Logger.warning("Processing #{from_data} with base_url #{base_url}")
 
           # Recursively traverse the tree.
@@ -213,7 +225,7 @@ module Fog
 
               next if @files.key?(str_url)
               # Don't process file:// outside our base_url. TODO raise an exception here?
-              next if file_outside_base_url(base_url, str_url)
+              next if file_outside_base_url?(base_url, str_url)
 
               file_content = get_content(str_url)
 

@@ -52,6 +52,20 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       end
     end
 
+    it "#get_content_bad_uri" do
+      test_cases = %w[
+        |no_command_execution
+        |neither;\nhttp://localhost
+        http:/../../../../../etc/passwd
+      ]
+      test_cases.each do |uri|
+        assert_raises ArgumentError do
+          @file_resolver.get_content(uri)
+        end
+      end
+    end
+
+
     it "#base_url_for_url" do
       test_cases = [
         %w(file:///f.txt file:///),
