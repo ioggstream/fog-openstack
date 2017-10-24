@@ -35,12 +35,6 @@ module Fog
           @visited = {}
         end
 
-        def yaml_load(content)
-          return YAML.load(content) if RUBY_VERSION < "2.1"
-
-          YAML.safe_load(content, [Date])
-        end
-
         def get_files
           Fog::Logger.debug("Processing template #{@template}")
           @template = get_template_contents(@template)
@@ -93,7 +87,7 @@ module Fog
           else
             raise "template_file is not a string of the expected form"
           end
-          template = yaml_load(raw_template)
+          template = YAML.safe_load(raw_template, [Date])
 
           get_file_contents(template, template_base_url)
 

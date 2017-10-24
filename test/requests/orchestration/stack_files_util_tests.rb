@@ -15,9 +15,9 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
     @orchestration = Fog::Orchestration[:openstack]
     @file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
     @base_url = "file://" + File.absolute_path(".")
-    @data = @file_resolver.yaml_load(open("stack_files_util_tests.yaml"))
-    @template_yaml = @file_resolver.yaml_load(open("template.yaml"))
-    @local_yaml = @file_resolver.yaml_load(open("local.yaml"))
+    @data = YAML.load_file("stack_files_util_tests.yaml")
+    @template_yaml = YAML.load_file("template.yaml")
+    @local_yaml = YAML.load_file("local.yaml")
   end
   after do
     Dir.chdir(@oldcwd)
