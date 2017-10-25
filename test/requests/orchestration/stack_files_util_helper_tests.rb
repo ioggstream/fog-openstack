@@ -62,7 +62,6 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       end
     end
 
-
     it "#base_url_for_url" do
       test_cases = [
         %w(file:///f.txt file:///),

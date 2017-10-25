@@ -59,13 +59,12 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       test_cases = @data["get_files_invalid"].map do |testcase|
         [testcase['input'], testcase['expected']]
       end.compact
-      test_cases.each do |data, expected|
+      test_cases.each do |data, _|
         file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(data)
 
         assert_raises ArgumentError, URI::InvalidURIError do
           file_resolver.get_files
         end
-
       end
     end
 

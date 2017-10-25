@@ -46,9 +46,11 @@ module Fog
         def url_join(prefix, suffix)
           if prefix
             suffix = URI.join(prefix, suffix)
-            suffix = suffix.to_s.sub(%r{^file:\/+}, "file:///")
+            # Force URI to use traditional file scheme representation.
+            suffix.host = "" if suffix.scheme == "file"
+            suffix = suffix.to_s
           end
-          suffix
+          suffix.to_s
         end
 
         # Retrieve a template content.
@@ -173,7 +175,7 @@ module Fog
           # TODO: A future revision may limit download size.
           content = ''
           # open-uri doesn't open "file:///" uris.
-          uri_or_filename = uri_or_filename.sub(/file:/, "")
+          uri_or_filename = uri_or_filename.sub(/^file:/, "")
 
           open(uri_or_filename) { |f| content = f.read }
           content
@@ -228,8 +230,8 @@ module Fog
           url_join(parsed, parsed_dir)
         end
 
-        # Nothing to do on URIs
         def normalise_file_path_to_url(path)
+          # Nothing to do on URIs
           return path if URI(path).scheme
 
           path = File.absolute_path(path)
