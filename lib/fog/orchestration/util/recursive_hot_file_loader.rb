@@ -183,7 +183,8 @@ module Fog
 
         # Return true if the file is an heat template, false otherwise.
         def template_is_raw?(content)
-          htv = content.index("heat_template_version:")
+          htv = content.strip.index("heat_template_version")
+          # Tolerate some leading character in case of a json template.
           htv && htv < 5
         end
 

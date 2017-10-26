@@ -101,6 +101,14 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       # The template argument should be modified.
       assert(template['resources']['a_file']['type'].start_with?('file:///'), file_resolver.template)
 
+      # Nested template argument should be modified.
+      _, hot_1_yaml = file_resolver.files.select { |fpath, _| fpath.end_with?("hot_1.yaml") }.first
+      hot_1_yaml = YAML.safe_load(hot_1_yaml)
+      assert(
+        hot_1_yaml['resources']['a_file']['properties']['config']['get_file'].start_with?('file:///'),
+        hot_1_yaml['resources']['a_file']['properties']['config']['get_file']
+      )
+
       # No side effect on the original template.
       refute(@local_yaml['resources']['a_file']['type'].start_with?('file:///'))
     end
