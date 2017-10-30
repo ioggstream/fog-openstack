@@ -1,10 +1,6 @@
 heat_template_version: newton
 
 resources:
-  file_ko:
-    get_file: "file:///etc/hosts"
-  type_ko:
-    type: "file:///etc/hosts"
   no_recursion:
     type: local_fullpath.yaml
   recurse_yaml_template:

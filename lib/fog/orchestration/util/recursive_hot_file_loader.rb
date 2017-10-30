@@ -123,8 +123,6 @@ module Fog
             str_url = url_join(base_url, value)
 
             next if @files.key?(str_url)
-            # Don't process file:// outside our base_url. TODO raise an exception here?
-            next if file_outside_base_url?(base_url, str_url)
 
             file_content = get_content(str_url)
 
