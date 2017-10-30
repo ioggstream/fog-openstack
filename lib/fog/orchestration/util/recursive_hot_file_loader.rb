@@ -31,8 +31,7 @@ module Fog
           @template_ori = template
           @template_base_url = nil
           @files = files || {}
-          @max_files_size = (128 * 1 << 10)
-          @visited = {}
+          @visited = Set.new
         end
 
         def get_files
@@ -45,6 +44,7 @@ module Fog
         # Return string
         def url_join(prefix, suffix)
           if prefix
+            prefix += '/' if prefix && !prefix.to_s.end_with?("/")
             suffix = URI.join(prefix, suffix)
             # Force URI to use traditional file scheme representation.
             suffix.host = "" if suffix.scheme == "file"
@@ -63,7 +63,7 @@ module Fog
         # XXX: after deprecation of Ruby 1.9 we could use
         #      named parameters and better mimic heatclient implementation.
         def get_template_contents(template_file)
-          Fog::Logger.warning("get_template_contents #{template_file}")
+          Fog::Logger.debug("get_template_contents #{template_file}")
 
           raise "template_file should be Hash or String" unless
             template_file.kind_of?(String) || template_file.kind_of?(Hash)
@@ -84,8 +84,8 @@ module Fog
             template_base_url = base_url_for_url(template_file)
             raw_template = get_content(template_file)
 
-            Fog::Logger.warning("Template visited: #{@visited}")
-            @visited[template_file] = true
+            Fog::Logger.debug("Template visited: #{@visited}")
+            @visited.add(template_file)
           else
             raise "template_file is not a string of the expected form"
           end
@@ -103,7 +103,7 @@ module Fog
         #   and shade.
         #
         def get_file_contents(from_data, base_url = nil)
-          Fog::Logger.warning("Processing #{from_data} with base_url #{base_url}")
+          Fog::Logger.debug("Processing #{from_data} with base_url #{base_url}")
 
           # Recursively traverse the tree.
           if recurse_if(from_data)
@@ -114,32 +114,31 @@ module Fog
           end
 
           # I'm on a Hash, process it.
-          if from_data.kind_of?(Hash)
-            from_data.each do |key, value|
-              next if ignore_if(key, value)
-              Fog::Logger.debug("Inspecting #{key}, #{value} at #{base_url}")
+          return unless from_data.kind_of?(Hash)
+          from_data.each do |key, value|
+            next if ignore_if(key, value)
+            Fog::Logger.debug("Inspecting #{key}, #{value} at #{base_url}")
 
-              # Resolve relative paths.
-              base_url += '/' if base_url && !base_url.end_with?('/')
-              str_url = url_join(base_url, value)
+            # Resolve relative paths.
+            str_url = url_join(base_url, value)
 
-              next if @files.key?(str_url)
-              # Don't process file:// outside our base_url. TODO raise an exception here?
-              next if file_outside_base_url?(base_url, str_url)
+            next if @files.key?(str_url)
+            # Don't process file:// outside our base_url. TODO raise an exception here?
+            next if file_outside_base_url?(base_url, str_url)
 
-              file_content = get_content(str_url)
+            file_content = get_content(str_url)
 
-              # get_file should not recurse hot templates.
-              if key == "type" && template_is_raw?(file_content) && !(@visited[str_url])
-                template = get_template_contents(str_url)
-                file_content = YAML.dump(template)
-              end
-
-              @files[str_url] = file_content
-              # replace the data value with the normalised absolute URL
-              Fog::Logger.debug("Replacing #{key} with #{str_url} in #{from_data}")
-              from_data[key] = str_url
+            # get_file should not recurse hot templates.
+            if key == "type" && template_is_raw?(file_content) && !@visited.include?(str_url)
+              template = get_template_contents(str_url)
+              file_content = YAML.dump(template)
             end
+
+            @files[str_url] = file_content
+            # replace the data value with the normalised absolute URL as required
+            #  by https://docs.openstack.org/heat/pike/template_guide/hot_spec.html#get-file
+            Fog::Logger.debug("Replacing #{key} with #{str_url} in #{from_data}")
+            from_data[key] = str_url
           end
         end
 
@@ -199,7 +198,7 @@ module Fog
         def file_outside_base_url?(base_url, str_url)
           ret = base_url && str_url.start_with?("file://") && !str_url.start_with?(base_url)
           if ret
-            Fog::Logger.warning("Trying to reference a file outside #{base_url}: #{str_url}")
+            Fog::Logger.debug("Trying to reference a file outside #{base_url}: #{str_url}")
           end
           ret
         end
