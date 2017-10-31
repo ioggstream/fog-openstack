@@ -44,7 +44,9 @@ module Fog
         # Return string
         def url_join(prefix, suffix)
           if prefix
-            prefix += '/' if prefix && !prefix.to_s.end_with?("/")
+            # URI.join replaces prefix parts before a
+            #  trailing slash. See https://docs.ruby-lang.org/en/2.3.0/URI.html.
+            prefix += '/' unless prefix.to_s.end_with?("/")
             suffix = URI.join(prefix, suffix)
             # Force URI to use traditional file scheme representation.
             suffix.host = "" if suffix.scheme == "file"
