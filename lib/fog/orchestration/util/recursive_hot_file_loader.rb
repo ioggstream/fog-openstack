@@ -22,13 +22,10 @@ module Fog
       class RecursiveHotFileLoader
         attr_reader :files
         attr_reader :template
-        attr_reader :template_ori
         attr_reader :visited
-        attr_reader :max_files_size
 
         def initialize(template, files = nil)
           @template = template
-          @template_ori = template
           @template_base_url = nil
           @files = files || {}
           @visited = Set.new
@@ -50,7 +47,6 @@ module Fog
             suffix = URI.join(prefix, suffix)
             # Force URI to use traditional file scheme representation.
             suffix.host = "" if suffix.scheme == "file"
-            suffix = suffix.to_s
           end
           suffix.to_s
         end
@@ -193,14 +189,6 @@ module Fog
           true
         rescue ArgumentError, URI::InvalidURIError
           false
-        end
-
-        def file_outside_base_url?(base_url, str_url)
-          ret = base_url && str_url.start_with?("file://") && !str_url.start_with?(base_url)
-          if ret
-            Fog::Logger.debug("Trying to reference a file outside #{base_url}: #{str_url}")
-          end
-          ret
         end
 
         # Return true if I should I process this this file.
