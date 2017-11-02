@@ -66,7 +66,7 @@ module Fog
           raise "template_file should be Hash or String" unless
             template_file.kind_of?(String) || template_file.kind_of?(Hash)
 
-          local_base_url = base_url_for_url(normalise_file_path_to_url(Dir.pwd + "/TEMPLATE"))
+          local_base_url = url_join("file:/", File.absolute_path(Dir.pwd))
 
           if template_file.kind_of?(Hash)
             template_base_url = local_base_url
