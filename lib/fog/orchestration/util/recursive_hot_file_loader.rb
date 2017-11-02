@@ -20,7 +20,10 @@ module Fog
         attr_reader :visited
 
         def initialize(template, files = nil)
-          @template = template
+          # Serialize the template hash to deep-copy it and
+          #  avoid modifying the argument. Instead create a
+          #  new one to be modified by get_file_contents.
+          @template = deep_copy(template)
           @files = files || {}
           @visited = Set.new
         end
@@ -66,24 +69,21 @@ module Fog
 
           if template_file.kind_of?(Hash)
             template_base_url = local_base_url
-            # Serialize the template hash to deep-copy it and
-            #  avoid modifying the argument. Instead create a
-            #  new one to be modified by get_file_contents.
-            raw_template = YAML.dump(template_file)
+            template = template_file
           elsif template_is_raw?(template_file)
-            raw_template = template_file
             template_base_url = local_base_url
+            template = YAML.safe_load(template_file, [Date])
           elsif template_is_url?(template_file)
             template_file = normalise_file_path_to_url(template_file)
             template_base_url = base_url_for_url(template_file)
             raw_template = read_uri(template_file)
+            template = YAML.safe_load(raw_template, [Date])
 
             Fog::Logger.debug("Template visited: #{@visited}")
             @visited.add(template_file)
           else
             raise "template_file is not a string of the expected form"
           end
-          template = YAML.safe_load(raw_template, [Date])
 
           get_file_contents(template, template_base_url)
 
@@ -111,7 +111,6 @@ module Fog
           return unless from_data.kind_of?(Hash)
           from_data.each do |key, value|
             next if ignore_if(key, value)
-            Fog::Logger.debug("Inspecting #{key}, #{value} at #{base_url}")
 
             # Resolve relative paths.
             str_url = url_join(base_url, value)
@@ -129,7 +128,6 @@ module Fog
             @files[str_url] = file_content
             # replace the data value with the normalised absolute URL as required
             #  by https://docs.openstack.org/heat/pike/template_guide/hot_spec.html#get-file
-            Fog::Logger.debug("Replacing #{key} with #{str_url} in #{from_data}")
             from_data[key] = str_url
           end
         end
@@ -220,6 +218,12 @@ module Fog
 
           path = File.absolute_path(path)
           url_join('file:/', path)
+        end
+
+        def deep_copy(item)
+          return item if item.kind_of?(String)
+
+          YAML.safe_load(YAML.dump(item), [Date])
         end
       end # Class
     end
