@@ -76,7 +76,7 @@ module Fog
           elsif template_is_url?(template_file)
             template_file = normalise_file_path_to_url(template_file)
             template_base_url = base_url_for_url(template_file)
-            raw_template = get_content(template_file)
+            raw_template = read_uri(template_file)
 
             Fog::Logger.debug("Template visited: #{@visited}")
             @visited.add(template_file)
@@ -118,7 +118,7 @@ module Fog
 
             next if @files.key?(str_url)
 
-            file_content = get_content(str_url)
+            file_content = read_uri(str_url)
 
             # get_file should not recurse hot templates.
             if key == "type" && template_is_raw?(file_content) && !@visited.include?(str_url)
@@ -145,7 +145,7 @@ module Fog
         # Protect open-uri from malign arguments like
         #  - "|ls"
         #  - multiline strings
-        def get_content(uri_or_filename)
+        def read_uri(uri_or_filename)
           remote_schemes = %w[http https ftp]
           Fog::Logger.debug("Opening #{uri_or_filename}")
 
