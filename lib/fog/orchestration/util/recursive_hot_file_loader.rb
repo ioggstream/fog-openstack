@@ -12,11 +12,6 @@ module Fog
       #  a files Hash conforming to Heat Specs
       #  https://developer.openstack.org/api-ref/orchestration/v1/index.html?expanded=create-stack-detail#stacks
       #
-      # Files present in :files are not processed further. The others
-      #   are added to the Hash. This behavior is the same implemented in openstack-infra/shade
-      #   see https://github.com/openstack-infra/shade/blob/1d16f64fbf376a956cafed1b3edd8e51ccc16f2c/shade/openstackcloud.py#L1200
-
-      #
       # This implementation just process nested templates but not resource
       #  registries.
       class RecursiveHotFileLoader
@@ -26,12 +21,13 @@ module Fog
 
         def initialize(template, files = nil)
           @template = template
-          @template_base_url = nil
           @files = files || {}
           @visited = Set.new
         end
 
         def get_files
+          return @files unless @files.empty?
+
           Fog::Logger.debug("Processing template #{@template}")
           @template = get_template_contents(@template)
           Fog::Logger.debug("Template processed. Populated #{@files}")
