@@ -12,12 +12,12 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
   before do
     @oldcwd = Dir.pwd
     Dir.chdir("test/requests/orchestration")
-    @orchestration = Fog::Orchestration[:openstack]
-    @file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(@template_yaml)
     @base_url = "file://" + File.absolute_path(".")
-    @data =YAML.load_file("stack_files_util_tests.yaml")
-    @template_yaml =YAML.load_file("template.yaml")
-    @local_yaml =YAML.load_file("local.yaml")
+    @data = YAML.load_file("stack_files_util_tests.yaml")
+    @template_yaml = YAML.load_file("template.yaml")
+    @local_yaml = YAML.load_file("local.yaml")
+    @orchestration = Fog::Orchestration[:openstack]
+    @file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new({})
   end
   after do
     Dir.chdir(@oldcwd)

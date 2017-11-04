@@ -23,22 +23,14 @@ module Fog
         attr_reader :template
 
         def initialize(template, files = nil)
-          # Serialize the template hash to deep-copy it and
-          #  avoid modifying the argument. Instead create a
-          #  new one to be modified by get_file_contents.
-          #
           # According to https://github.com/fog/fog-openstack/blame/master/docs/orchestration.md#L122
           #  templates can be either String or Hash.
-          @template = deep_copy(template)
-          @files = files || {}
+          #  If it's an Hash, we deep_copy it so the passed argument
+          #  is not modified by get_file_contents.
+          template = deep_copy(template)
           @visited = Set.new
-        end
-
-        def get_files
-          Fog::Logger.debug("Processing template #{@template}")
-          @template = get_template_contents(@template)
-          Fog::Logger.debug("Template processed. Populated #{@files}")
-          @files
+          @files = files || {}
+          @template = get_template_contents(template)
         end
 
         # Return string
@@ -64,9 +56,9 @@ module Fog
         # XXX: we could use named parameters
         # and better mimic heatclient implementation.
         def get_template_contents(template_file)
-          Fog::Logger.debug("get_template_contents #{template_file}")
+          Fog::Logger.debug("get_template_contents [#{template_file}]")
 
-          raise "template_file should be Hash or String" unless
+          raise "template_file should be Hash or String, not #{template_file.class.name}" unless
             template_file.kind_of?(String) || template_file.kind_of?(Hash)
 
           local_base_url = url_join("file:/", File.absolute_path(Dir.pwd))

@@ -34,15 +34,14 @@ module Fog
           # Templates should always:
           #  - be strings
           #  - contain URI references instead of relative paths.
-          # Passing :template_url may not work well with `get_files` and remote `type`:
+          # Passing :template_url may not work well with `get_file` and remote `type`:
           #  the python client implementation in shade retrieves from :template_uri
           #  and replaces it with :template.
           #  see https://github.com/openstack-infra/shade/blob/master/shade/openstackcloud.py#L1201
           #  see https://developer.openstack.org/api-ref/orchestration/v1/index.html#create-stack
           file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url], options[:files])
-          files = file_resolver.get_files
           options[:template] = file_resolver.template
-          options[:files] = files if files
+          options[:files] = file_resolver.files unless file_resolver.files.empty?
 
           request(
             :expects => 201,
@@ -91,8 +90,7 @@ module Fog
 
           if options.key?(:template) || options.key?(:template_url)
             file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url], options[:files])
-            files = file_resolver.get_files
-            response.body['files'] = files if files
+            response.body['files'] = file_resolver.files unless file_resolver.files.empty?
           end
 
           response
