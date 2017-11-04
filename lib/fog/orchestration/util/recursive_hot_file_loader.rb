@@ -12,25 +12,29 @@ module Fog
       #  a files Hash conforming to Heat Specs
       #  https://developer.openstack.org/api-ref/orchestration/v1/index.html?expanded=create-stack-detail#stacks
       #
+      # Files present in :files are not processed further. The others
+      #   are added to the Hash. This behavior is the same implemented in openstack-infra/shade
+      #   see https://github.com/openstack-infra/shade/blob/1d16f64fbf376a956cafed1b3edd8e51ccc16f2c/shade/openstackcloud.py#L1200
+      #
       # This implementation just process nested templates but not resource
       #  registries.
       class RecursiveHotFileLoader
         attr_reader :files
         attr_reader :template
-        attr_reader :visited
 
         def initialize(template, files = nil)
           # Serialize the template hash to deep-copy it and
           #  avoid modifying the argument. Instead create a
           #  new one to be modified by get_file_contents.
+          #
+          # According to https://github.com/fog/fog-openstack/blame/master/docs/orchestration.md#L122
+          #  templates can be either String or Hash.
           @template = deep_copy(template)
           @files = files || {}
           @visited = Set.new
         end
 
         def get_files
-          return @files unless @files.empty?
-
           Fog::Logger.debug("Processing template #{@template}")
           @template = get_template_contents(@template)
           Fog::Logger.debug("Template processed. Populated #{@files}")
@@ -57,8 +61,8 @@ module Fog
         #          - an URI string
         #          - an Hash containing the parsed template.
         #
-        # XXX: after deprecation of Ruby 1.9 we could use
-        #      named parameters and better mimic heatclient implementation.
+        # XXX: we could use named parameters
+        # and better mimic heatclient implementation.
         def get_template_contents(template_file)
           Fog::Logger.debug("get_template_contents #{template_file}")
 
@@ -225,7 +229,7 @@ module Fog
 
           YAML.safe_load(YAML.dump(item), [Date])
         end
-      end # Class
+      end
     end
   end
 end
