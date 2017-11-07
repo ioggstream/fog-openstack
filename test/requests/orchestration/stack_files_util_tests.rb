@@ -34,7 +34,7 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       ]
       test_cases.each do |data, expected|
         file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new({})
-        file_resolver.send(:get_file_contents, data)
+        file_resolver.send(:get_file_contents, data, nil)
         assert_equal(file_resolver.files, expected)
       end
     end

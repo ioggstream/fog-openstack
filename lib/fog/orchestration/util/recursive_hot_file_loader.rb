@@ -92,16 +92,13 @@ module Fog
         #   replaced with their absolute URI as done in heatclient
         #   and shade.
         #
-        def get_file_contents(from_data, base_url = nil)
+        def get_file_contents(from_data, base_url)
           Fog::Logger.debug("Processing #{from_data} with base_url #{base_url}")
 
-          # Recursively traverse the tree.
-          if recurse_if(from_data)
-            recurse_data = from_data.kind_of?(Hash) ? from_data.values : from_data
-            recurse_data.each do |value|
-              get_file_contents(value, base_url)
-            end
-          end
+          # Recursively traverse the tree
+          #   if recurse_data is Array or Hash
+          recurse_data = from_data.kind_of?(Hash) ? from_data.values : from_data
+          recurse_data.each { |value| get_file_contents(value, base_url) } if recurse_data.kind_of?(Array)
 
           # I'm on a Hash, process it.
           return unless from_data.kind_of?(Hash)
@@ -147,17 +144,18 @@ module Fog
             # Validate URI to protect from open-uri attacks.
             url = URI(uri_or_filename)
 
-            # Remote schemes must contain an host.
-            raise ArgumentError if url.host.nil? && remote_schemes.include?(url.scheme)
+            if remote_schemes.include?(url.scheme)
+              # Remote schemes must contain an host.
+              raise ArgumentError if url.host.nil?
 
-            # Encode URI with spaces.
-            uri_or_filename = URI.encode(URI.decode(URI(uri_or_filename).to_s))
+              # Encode URI with spaces.
+              uri_or_filename = uri_or_filename.gsub(/ /, "%20")
+            end
           rescue URI::InvalidURIError
             raise ArgumentError, "Not a valid URI: #{uri_or_filename}"
           end
 
           # TODO: A future revision may implement a retry.
-          # TODO: A future revision may limit download size.
           content = ''
           # open-uri doesn't open "file:///" uris.
           uri_or_filename = uri_or_filename.sub(/^file:/, "")
@@ -194,11 +192,6 @@ module Fog
                          !value.end_with?('.yaml', '.template')
 
           false
-        end
-
-        # Return true if I should inspect this yaml template branch.
-        def recurse_if(value)
-          value.kind_of?(Hash) || value.kind_of?(Array)
         end
 
         # Returns the string baseurl of the given url.
