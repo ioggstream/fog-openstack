@@ -1,5 +1,3 @@
-require "fog/orchestration/util/recursive_hot_file_loader"
-
 module Fog
   module Orchestration
     class OpenStack
@@ -39,7 +37,7 @@ module Fog
           #  and replaces it with :template.
           #  see https://github.com/openstack-infra/shade/blob/master/shade/openstackcloud.py#L1201
           #  see https://developer.openstack.org/api-ref/orchestration/v1/index.html#create-stack
-          file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url], options[:files])
+          file_resolver = Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url], options[:files])
           options[:template] = file_resolver.template
           options[:files] = file_resolver.files unless file_resolver.files.empty?
 
@@ -89,7 +87,7 @@ module Fog
           end
 
           if options.key?(:template) || options.key?(:template_url)
-            file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url], options[:files])
+            file_resolver = Util::RecursiveHotFileLoader.new(options[:template] || options[:template_url], options[:files])
             response.body['files'] = file_resolver.files unless file_resolver.files.empty?
           end
 

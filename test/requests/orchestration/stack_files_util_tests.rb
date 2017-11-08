@@ -1,7 +1,6 @@
 require "test_helper"
 require "yaml"
 require "open-uri"
-require "fog/orchestration/util/recursive_hot_file_loader"
 
 describe "Fog::Orchestration[:openstack] | stack requests" do
   @create_format_files = {
@@ -61,7 +60,7 @@ describe "Fog::Orchestration[:openstack] | stack requests" do
       end.compact
       test_cases.each do |data, _|
         assert_raises ArgumentError, URI::InvalidURIError do
-          file_resolver = Fog::Orchestration::Util::RecursiveHotFileLoader.new(data)
+          Fog::Orchestration::Util::RecursiveHotFileLoader.new(data)
         end
       end
     end
